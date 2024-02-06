@@ -1,10 +1,15 @@
-const { MongoClient, ObjectId } = require('mongodb');
+const {
+    MongoClient,
+    ObjectId
+} = require('mongodb');
 const stream = require('stream');
 const async = require('async');
 const moment = require('moment');
 const dotenv = require('dotenv');
-dotenv.config({});
+const RedisService = require('./RedisService');
+const LockService = require('./LockService');
 
+dotenv.config({});
 const retryLimit = 2;
 
 /**
@@ -31,34 +36,53 @@ function closeChangeStream(timeInMs = 60000, changeStream) {
  * @param {Object} pipeline An aggregation pipeline that determines which change events should be output to the console
  */
 async function monitorListingsUsingEventEmitter(client, timeInMs = 60000, pipeline = [], watchOpts) {
-
+    console.log("monitorListingsUsingEventEmitter");
     const collection = client.db("sample_airbnb").collection("listingsAndReviews");
 
-    // See https://mongodb.github.io/node-mongodb-native/3.6/api/Collection.html#watch for the watch() docs
-    const changeStream = collection.watch(pipeline, watchOpts);
-    console.log("#######################################################################");
-    console.log("#                           FRESH                                     #");
-    console.log("#######################################################################");
+    let changeStream; // Declare changeStream variable outside the scope of functions
 
-    changeStream.on('change', (next) => {
-        console.log("next", next);
-        handleEvents(client, next)
-    });
+    // Function to recreate and restart the change stream
+    const restartChangeStream = async () => {
+        console.log('Restarting change stream...');
+        await listenForNextJob(client, null);
+    };
 
+    const watchChanges = () => {
+
+        changeStream = collection.watch(pipeline, watchOpts);
+
+        changeStream.on('change', (next) => {
+            handleEvents(client, next);
+        });
+
+        changeStream.on('error', (error) => {
+            console.error('Change stream error:', error);
+            if (error.codeName === 'ChangeStreamHistoryLost' || error.codeName === "ChangeStreamFatalError") {
+                // Handle ChangeStreamHistoryLost error by restarting the change stream
+                restartChangeStream();
+
+            } else {
+                // Handle other errors according to your application's requirements
+                console.error('Other error:', error);
+            }
+        });
+    };
+
+    watchChanges();
     // await closeChangeStream(timeInMs, changeStream);
 }
 
 const handleEvents = async (client, doc) => {
 
-    console.log("handleEvents");
     const newDoc = JSON.parse(JSON.stringify(doc))
     const nextResumeToken = newDoc._id
     documentId = new ObjectId(newDoc.fullDocument._id)
 
     const newJobs = async () => {
         await updateListing(client, documentId, {
-            'status': 'completed',
-            resumeToken: nextResumeToken
+            status: 'completed',
+            completedAt: moment().toDate(),
+            resumeToken: nextResumeToken,
         });
         // await listenForNextJob(client, nextResumeToken)
     }
@@ -171,30 +195,30 @@ async function main() {
         const resumeToken = await getResumeToken(client)
         await listenForNextJob(client, resumeToken);
 
-        // const italianVilla = await createListing(client, {
-        //     name: "Italian Villa",
-        //     property_type: "Entire home/apt",
-        //     bedrooms: 6,
-        //     status: 'failed',
-        //     retryCount: 0,
-        //     bathrooms: 4,
-        //     address: {
-        //         market: "Cinque Terre",
-        //         country: "Italy"
-        //     }
-        // });
+        const italianVilla = await createListing(client, {
+            name: "Italian Villa",
+            property_type: "Entire home/apt",
+            bedrooms: 6,
+            status: 'failed',
+            retryCount: 0,
+            bathrooms: 4,
+            address: {
+                market: "Cinque Terre",
+                country: "Italy"
+            }
+        });
 
-        // const sydneyHarbourHome = await createListing(client, {
-        //     name: "Sydney Harbour Home",
-        //     bedrooms: 4,
-        //     bathrooms: 2.5,
-        //     status: 'failed',
-        //     retryCount: 0,
-        //     address: {
-        //         market: "Sydney",
-        //         country: "Australia"
-        //     }
-        // });
+        const sydneyHarbourHome = await createListing(client, {
+            name: "Sydney Harbour Home",
+            bedrooms: 4,
+            bathrooms: 2.5,
+            status: 'failed',
+            retryCount: 0,
+            address: {
+                market: "Sydney",
+                country: "Australia"
+            }
+        });
 
     } finally {
         // Close the connection to the MongoDB cluster
@@ -224,10 +248,10 @@ const getResumeToken = async (client) => {
                 },
             },
         ]).next();
-        console.log(job?.resumeToken);
+        console.log("Resume token ", job?.resumeToken); 
         return job?.resumeToken;
     } catch (err) {
-        sails.log.error(`Error in getResumeToken`, err);
+        console.error(`Error in getResumeToken`, err);
     }
 };
 
