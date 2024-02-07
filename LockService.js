@@ -1,5 +1,6 @@
 const moment = require('moment')
 const RedisService = require('./RedisService')
+const _ = require('underscore')
 
 function lockHelper({
     nameSpace,

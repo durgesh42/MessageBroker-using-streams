@@ -138,9 +138,23 @@ async function createListing(client, newListing) {
  */
 async function updateListing(client, documentId, updatedListing) {
     // See http://bit.ly/Node_updateOne for the updateOne() docs
-    const result = await client.db("sample_airbnb").collection("listingsAndReviews").updateOne({ _id: documentId }, { $set: updatedListing });
-    console.log(`${result.matchedCount} document(s) matched the query criteria.`);
-    console.log(`${result.modifiedCount} document(s) was/were updated.`);
+
+    LockService.acquireLock(`handleEvents:${documentId}`, 1000, async (lockErr, queueMsgLock) => {
+        if (lockErr) {
+            if (!lockErr.safe) {
+                console.error(
+                    `Error in acquireLock in handleEvents`,
+                    `documentId: `, documentId,
+                    `lockErr: `, lockErr
+                );
+            }
+            return;
+        }
+        const result = await client.db("sample_airbnb").collection("listingsAndReviews").updateOne({ _id: documentId }, { $set: updatedListing });
+        console.log(`${result.matchedCount} document(s) matched the query criteria.`);
+        console.log(`${result.modifiedCount} document(s) was/were updated.`);
+        LockService.releaseLock(queueMsgLock);
+    });
 }
 
 
@@ -248,7 +262,7 @@ const getResumeToken = async (client) => {
                 },
             },
         ]).next();
-        console.log("Resume token ", job?.resumeToken); 
+        console.log("Resume token ", job?.resumeToken);
         return job?.resumeToken;
     } catch (err) {
         console.error(`Error in getResumeToken`, err);
