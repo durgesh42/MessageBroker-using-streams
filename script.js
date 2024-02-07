@@ -56,72 +56,72 @@ async function main() {
         });
 
         // Make the appropriate DB calls
-        // const operaHouseViews = await createListing(client, {
-        //     name: "Opera House Views",
-        //     summary: "Beautiful apartment with views of the iconic Sydney Opera House",
-        //     property_type: "Apartment",
-        //     bedrooms: 1,
-        //     bathrooms: 1,
-        //     beds: 1,
-        //     status: 'queued',
-        //     address: {
-        //         market: "Sydney",
-        //         country: "Australia"
-        //     }
-        // });
+        const operaHouseViews = await createListing(client, {
+            name: "Opera House Views",
+            summary: "Beautiful apartment with views of the iconic Sydney Opera House",
+            property_type: "Apartment",
+            bedrooms: 1,
+            bathrooms: 1,
+            beds: 1,
+            status: 'queued',
+            address: {
+                market: "Sydney",
+                country: "Australia"
+            }
+        });
 
-        // const privateRoomInLondon = await createListing(client, {
-        //     name: "Private room in London",
-        //     property_type: "Apartment",
-        //     bedrooms: 1,
-        //     bathroom: 1,
-        //     status: 'queued',
-        // });
+        const privateRoomInLondon = await createListing(client, {
+            name: "Private room in London",
+            property_type: "Apartment",
+            bedrooms: 1,
+            bathroom: 1,
+            status: 'queued',
+        });
 
-        // const beautifulBeachHouse = await createListing(client, {
-        //     name: "Beautiful Beach House",
-        //     summary: "Enjoy relaxed beach living in this house with a private beach",
-        //     bedrooms: 4,
-        //     bathrooms: 2.5,
-        //     status: 'queued',
-        //     beds: 7,
-        //     last_review: new Date()
-        // });
+        const beautifulBeachHouse = await createListing(client, {
+            name: "Beautiful Beach House",
+            summary: "Enjoy relaxed beach living in this house with a private beach",
+            bedrooms: 4,
+            bathrooms: 2.5,
+            status: 'queued',
+            beds: 7,
+            last_review: new Date()
+        });
 
-        // await updateListing(client, operaHouseViews, { beds: 2 });
+        await updateListing(client, operaHouseViews, { beds: 2 });
 
-        // await updateListing(client, beautifulBeachHouse, {
-        //     address: {
-        //         market: "Sydney",
-        //         status: 'queued',
-        //         country: "Australia"
-        //     }
-        // });
+        await updateListing(client, beautifulBeachHouse, {
+            address: {
+                market: "Sydney",
+                status: 'queued',
+                country: "Australia"
+            }
+        });
 
-        // const italianVilla = await createListing(client, {
-        //     name: "Italian Villa",
-        //     property_type: "Entire home/apt",
-        //     bedrooms: 6,
-        //     status: 'queued',
-        //     bathrooms: 4,
-        //     address: {
-        //         market: "Cinque Terre",
-        //         country: "Italy"
-        //     }
-        // });
+        const italianVilla = await createListing(client, {
+            name: "Italian Villa",
+            property_type: "Entire home/apt",
+            bedrooms: 6,
+            status: 'queued',
+            bathrooms: 4,
+            address: {
+                market: "Cinque Terre",
+                country: "Italy"
+            }
+        });
 
-        // const sydneyHarbourHome = await createListing(client, {
-        //     name: "Sydney Harbour Home",
-        //     bedrooms: 4,
-        //     bathrooms: 2.5,
-        //     status: 'queued',
-        //     address: {
-        //         market: "Sydney",
-        //         country: "Australia"
-        //     }
-        // });
+        const sydneyHarbourHome1 = await createListing(client, {
+            name: "Sydney Harbour Home",
+            bedrooms: 4,
+            bathrooms: 2.5,
+            status: 'queued',
+            address: {
+                market: "Sydney",
+                country: "Australia"
+            }
+        });
 
-        // await deleteListing(client, sydneyHarbourHome);
+        await deleteListing(client, sydneyHarbourHome1);
 
     } finally {
         // Close the connection to the MongoDB cluster

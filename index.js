@@ -136,6 +136,49 @@ async function createListing(client, newListing) {
  * @param {String} listingId The id of the listing you want to update
  * @param {object} updatedListing An object containing all of the properties to be updated for the given listing
  */
+// async function updateListing(client, documentId, updatedListing) {
+//     // See http://bit.ly/Node_updateOne for the updateOne() docs
+
+//     async.waterfall([
+//         // Acquire lock
+//         (cbl) => {
+//             LockService.acquireLock(`handleEvents:${documentId}`, 1000, (lockErr, queueMsgLock) => {
+//                 if (lockErr) {
+//                     if (!lockErr.safe) {
+//                         console.error(
+//                             `Error in acquireLock in handleEvents`,
+//                             `documentId: `, documentId,
+//                             `lockErr: `, lockErr
+//                         );
+//                     }
+//                     return cbl(lockErr); // Pass error to next function
+//                 } else {
+//                     console.log(`Lock Acquire in handleEvents documentId: `, documentId);
+//                     return cbl(null, queueMsgLock); // Pass lock to next function
+//                 }
+//             });
+//         },
+//         (queueMsgLock, cbl) => { // Corrected this line
+//             try {
+//                 const result = await client.db("sample_airbnb").collection("listingsAndReviews").updateOne({ _id: documentId }, { $set: updatedListing })
+//                 console.log(`${result.matchedCount} document(s) matched the query criteria.`);
+//                 console.log(`${result.modifiedCount} document(s) was/were updated.`);
+//                 return cbl(null, queueMsgLock); // Pass lock to next function
+//             } catch (err) {
+//                 return cbl(err); // Pass error to final callback
+//             }
+//         }
+//     ], (err, queueMsgLock) => {
+//         if (err) {
+//             console.error('Error:', err);
+//         } else {
+//             console.log(`Lock Released in handleEvents documentId: `, documentId);
+//             LockService.releaseLock(queueMsgLock);
+//         }
+//     });
+// }
+
+
 async function updateListing(client, documentId, updatedListing) {
     // See http://bit.ly/Node_updateOne for the updateOne() docs
 
@@ -148,16 +191,16 @@ async function updateListing(client, documentId, updatedListing) {
                     `lockErr: `, lockErr
                 );
             }
-            return;
+        } else {
+            console.log(`Lock Acquire on handleEvents documentId: ${documentId}\n`);
+            const result = await client.db("sample_airbnb").collection("listingsAndReviews").updateOne({ _id: documentId }, { $set: updatedListing })
+            console.log(`${result.matchedCount} document(s) matched the query criteria.`);
+            console.log(`${result.modifiedCount} document(s) was/were updated.`);
+            console.log(`\nLock Released in handleEvents documentId: ${documentId}\n`);
+            LockService.releaseLock(queueMsgLock);
         }
-        const result = await client.db("sample_airbnb").collection("listingsAndReviews").updateOne({ _id: documentId }, { $set: updatedListing });
-        console.log(`${result.matchedCount} document(s) matched the query criteria.`);
-        console.log(`${result.modifiedCount} document(s) was/were updated.`);
-        LockService.releaseLock(queueMsgLock);
     });
 }
-
-
 
 async function connectToMongoDB() {
     const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.bhg1dcp.mongodb.net/?retryWrites=true&w=majority`;
@@ -269,9 +312,9 @@ const getResumeToken = async (client) => {
     }
 };
 
+// fetch all 'queued' jobs older than current job id and
+// initiate reset processes for all of them
 const initiateOlderPendingJobs = async (client, currentJobId) => {
-    // fetch all 'queued' jobs older than current job id and
-    // initiate reset processes for all of them
     console.log("initiateOlderPendingJobs currentJobId: ", currentJobId);
     const jobs = await client.db("sample_airbnb").collection("listingsAndReviews").aggregate([
         {
@@ -301,21 +344,12 @@ const initiateOlderPendingJobs = async (client, currentJobId) => {
             }
         }
     ]).toArray(); // Use toArray() to get an array of documents
+
     console.log(JSON.stringify(jobs))
-    async.each(jobs, (job, cbe) => {
+    async.each(jobs, async (job, cbe) => {
         console.log("job", JSON.stringify(job));
         documentId = new ObjectId(job._id)
-        async.waterfall([
-            (cbw) => {
-                updateListing(client, documentId, {
-                    'status': 'completed',
-                    retrySource: 'initiate_old',
-                    completedAt: moment().toDate(),
-                });
-            }
-        ], (err) => {
-            return cbe(err)
-        })
+        await updateListing(client, documentId, { 'status': 'completed', retrySource: 'initiate_old', completedAt: moment().toDate() });
     })
 };
 
